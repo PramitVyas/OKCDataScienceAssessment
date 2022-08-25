@@ -1,0 +1,80 @@
+---
+title: "OKC Technical Assessment"
+output: html_document
+date: "2022-08-24"
+---
+## This project finds the EFG% and Shots Percentage from 2pt range, Corner 3pt Range and Non-Corner 3pt range
+## Pre-Analysis
+#### Filter teams
+```{R}
+library(dplyr)
+
+df <- read.csv("shots_data.csv")
+
+#Engineer the variables for distance from the rim for a certain shot and whether the shot taken was a three, where the shot being taken on or inside the line is not a three
+shots_data <- df %>% 
+  mutate(DistFromRim = sqrt(x^2 + y^2)) %>% 
+  mutate(ThreePointShot = (y <= 7.8 & abs(x) > 22) | (y > 7.8 & DistFromRim > 23.75))
+
+teamA <- shots_data %>% filter(team == "Team A")
+teamB <- shots_data %>% filter(team == "Team B")
+```
+
+#### Calculate Percent of shots
+```{R}
+#' Prints the percent of shots and the efg% from a certain region for a certain team
+#' PercOfShots() has optional controls for regions, used to adjust for corner 3s
+#' @param team A dataframe object for all the shots for a team
+#' @param Three A boolean for whether the calculations should be for 3pt shots, default is True
+#' @param miny A numerical variable for the lowest (non-inclusive) y coordinate for the shots to be from, defaulted to -100 as no valid shot coordinate will fall below that. If wanting non-corner 3s, this is set to 7.8
+#' @param maxy A numerical variable for the maximum (inclusive) coordinate for the shots to be from, defaulted to 1000 as no vald shot coordinate will be above that. If wanting corner 3s, set to 7.8
+#' @prints The percent of shots from a region and efg% of shots from that region
+PercEFGofShots <- function(team, Three = TRUE, miny = -100, maxy = 1000){
+  #Subset of the team dataset based on type of shot
+  filtereDat <- team %>% 
+    filter(ThreePointShot == Three) %>% 
+    filter(y > miny) %>% 
+    filter(y <= maxy)
+  #efg% of that subset
+  efg = (filtereDat %>% 
+           filter(fgmade == 1 ) %>% 
+           summarise(efg = (sum(fgmade) + .5 * sum(ThreePointShot))/ nrow(filtereDat)))[[1]]
+  print(paste(nrow(filtereDat) / nrow(team), "of",team$team[1],"'s shots were",
+              ifelse(Three,ifelse(miny == 7.8, "NC 3", "Corner 3"),2),"pointers")) 
+  print(paste("efg% of",team$team[1],"from",ifelse(Three,3,2),  "point range is", efg ))
+}
+
+```
+  
+## Results
+
+#### Team A -- 2pt
+```{R}
+PercEFGofShots(teamA, Three = FALSE)
+```
+#### Team A -- NC3
+```{R}
+PercEFGofShots(teamA, miny = 7.8)
+```
+#### Team A  -- Corner 3s
+```{R}
+PercEFGofShots(teamA, maxy = 7.8)
+```
+
+
+#### Team B -- 2pt
+```{R}
+PercEFGofShots(teamB, Three = FALSE)
+```
+#### Team B -- NC3
+```{R}
+PercEFGofShots(teamB, miny = 7.8)
+```
+#### Team B  -- Corner 3s
+```{R}
+PercEFGofShots(teamB, maxy = 7.8)
+```
+
+
+
+
